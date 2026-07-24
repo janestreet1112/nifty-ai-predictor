@@ -1,1 +1,10 @@
-
+streamlit==1.36.0
+streamlit-lightweight-charts
+pandas
+numpy
+pyotp
+smartapi-python
+newsapi-python
+textblob
+requests
+beautifulsoup4
