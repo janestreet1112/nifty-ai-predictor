@@ -7,3 +7,7 @@ newsapi-python
 textblob
 requests
 beautifulsoup4
+transformers
+torch
+xgboost
+scikit-learn
