@@ -5,13 +5,10 @@ pyotp
 smartapi-python
 logzero
 websocket-client
-newsapi-python
-textblob
-requests
-beautifulsoup4
 transformers
 torch
 xgboost
 scikit-learn
 plotly
 yfinance
+textblob
