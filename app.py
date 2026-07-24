@@ -9,7 +9,7 @@ from market_feed import get_live_nifty_candles
 
 st.set_page_config(layout="wide", page_title="NIFTY ML TradingView Dashboard", page_icon="📈")
 
-# Apply TradingView Dark Theme CSS Override
+# Apply TradingView Dark Theme
 st.markdown("""
     <style>
     .stApp { background-color: #131722; color: #d1d4dc; }
@@ -25,12 +25,16 @@ st.markdown("""
 st.title("📈 NIFTY 50 Live Predictor (TradingView Style)")
 
 @st.cache_resource
-def init_ai():
+def get_ai_engine():
     return MultiFactorAIEngine()
 
-ai_engine = init_ai()
+ai_engine = get_ai_engine()
 
-# 1. Load Live Market Feed
+# Cache market feed for 60 seconds to reduce CPU burden & API calls
+@st.cache_data(ttl=60)
+def fetch_cached_candles(api_key, client_id, pin, totp_secret):
+    return get_live_nifty_candles(api_key, client_id, pin, totp_secret)
+
 api_key = st.secrets.get("SMARTAPI_API_KEY")
 client_id = st.secrets.get("SMARTAPI_USERNAME")
 pin = st.secrets.get("SMARTAPI_PASSWORD")
@@ -39,7 +43,7 @@ totp_secret = st.secrets.get("SMARTAPI_TOTP_KEY")
 df_history = None
 if api_key and client_id and pin and totp_secret:
     with st.spinner("Syncing Live Angel One Stream..."):
-        df_history = get_live_nifty_candles(api_key, client_id, pin, totp_secret)
+        df_history = fetch_cached_candles(api_key, client_id, pin, totp_secret)
 
 if df_history is None or df_history.empty:
     st.info("ℹ️ Running on simulated feed. Check SmartAPI secrets on Streamlit Cloud.")
@@ -58,7 +62,7 @@ if df_history is None or df_history.empty:
         'volume': np.random.randint(1000, 5000, num_bars)
     })
 
-# 2. AI Forecast Logic
+# AI Inference Pipeline
 sample_headlines = [
     "Nifty consolidates near key resistance levels amid strong institutional buying.",
     "RBI monetary policy stance remains stable.",
@@ -70,7 +74,7 @@ ai_target = ai_engine.forecast_next_target(df_history, sentiment_score)
 latest_price = df_history['close'].iloc[-1]
 price_diff = ai_target - latest_price
 
-# 3. Streamlit Metrics Header
+# Display Metrics
 col1, col2, col3 = st.columns(3)
 col1.metric("FinBERT Sentiment", f"{sentiment_score:+.2f}", 
             delta="Bullish" if sentiment_score > 0 else "Bearish")
@@ -79,10 +83,9 @@ col3.metric("XGBoost 15M Target", f"₹{ai_target:.2f}", f"{price_diff:+.2f} pts
 
 st.divider()
 
-# 4. TradingView Style Candlestick Chart Engine
+# TradingView Candlestick Chart
 fig = go.Figure()
 
-# Candlestick Series (TradingView colors: Green #089981, Red #f23645)
 fig.add_trace(go.Candlestick(
     x=df_history['time'].dt.strftime('%m-%d %H:%M'),
     open=df_history['open'],
@@ -96,7 +99,6 @@ fig.add_trace(go.Candlestick(
     decreasing_fillcolor='#f23645'
 ))
 
-# Projected Target Horizontal Ray
 fig.add_hline(
     y=ai_target, 
     line_dash="dash", 
@@ -107,29 +109,19 @@ fig.add_hline(
     annotation_font_size=12
 )
 
-# Dark TradingView Styling Layout
 fig.update_layout(
     title="NIFTY 50 Intraday Candlesticks (15-Min Bar)",
     template="plotly_dark",
     paper_bgcolor="#131722",
     plot_bgcolor="#131722",
     height=520,
-    xaxis_rangeslider_visible=False, # Removes ugly bottom slider
-    xaxis=dict(
-        showgrid=True, 
-        gridcolor="#2a2e39", 
-        color="#b2b5be",
-        type='category' # Removes weekend/non-trading time gaps!
-    ),
-    yaxis=dict(
-        showgrid=True, 
-        gridcolor="#2a2e39", 
-        color="#b2b5be",
-        side="right" # Moves price scale to right (TradingView standard)
-    )
+    xaxis_rangeslider_visible=False,
+    xaxis=dict(showgrid=True, gridcolor="#2a2e39", color="#b2b5be", type='category'),
+    yaxis=dict(showgrid=True, gridcolor="#2a2e39", color="#b2b5be", side="right")
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-time.sleep(30)
+# Manual refresh button or longer sleep cycle (60s)
+time.sleep(60)
 st.rerun()
