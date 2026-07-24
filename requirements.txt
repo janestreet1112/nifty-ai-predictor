@@ -14,3 +14,4 @@ torch
 xgboost
 scikit-learn
 plotly
+yfinance
