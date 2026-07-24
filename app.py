@@ -17,31 +17,33 @@ def init_ai():
 ai_engine = init_ai()
 
 # 1. Fetch Live Market Candles (SmartAPI or Simulated Fallback)
+# 1. Fetch Live Market Candles (SmartAPI or Simulated Fallback)
 df_history = None
 
-if all(k in st.secrets for k in ["SMARTAPI_KEY", "CLIENT_ID", "PIN", "TOTP_SECRET"]):
-    with st.spinner("Fetching live NIFTY 50 ticks from Angel One..."):
-        df_history = get_live_nifty_candles(
-            st.secrets["SMARTAPI_KEY"],
-            st.secrets["CLIENT_ID"],
-            st.secrets["PIN"],
-            st.secrets["TOTP_SECRET"]
-        )
+# Support both naming formats in Streamlit Secrets
+api_key = st.secrets.get("SMARTAPI_API_KEY") or st.secrets.get("SMARTAPI_KEY")
+client_id = st.secrets.get("SMARTAPI_USERNAME") or st.secrets.get("CLIENT_ID")
+pin = st.secrets.get("SMARTAPI_PASSWORD") or st.secrets.get("PIN")
+totp_secret = st.secrets.get("SMARTAPI_TOTP_KEY") or st.secrets.get("TOTP_SECRET")
 
-# Fallback generator if credentials are missing/invalid
+if api_key and client_id and pin and totp_secret:
+    with st.spinner("Connecting to Angel One Live Market Stream..."):
+        df_history = get_live_nifty_candles(api_key, client_id, pin, totp_secret)
+
+# Fallback generator if credentials fail or are missing
 if df_history is None or df_history.empty:
-    st.info("ℹ️ Running on simulated feed. Add SmartAPI credentials to Streamlit Secrets for live market sync.")
+    st.info("ℹ️ Running on simulated feed. Verify SmartAPI secrets on Streamlit Cloud.")
     num_bars = 40
-    base_price = 23615.0
+    base_price = 23630.0  # Set closer to current market level
     time_stamps = [datetime.now() - timedelta(minutes=15 * (num_bars - i)) for i in range(num_bars)]
-    returns = np.random.normal(0.0001, 0.0015, num_bars)
+    returns = np.random.normal(0.00005, 0.001, num_bars)
     price_series = base_price * np.exp(np.cumsum(returns))
     
     df_history = pd.DataFrame({
         'time': time_stamps,
-        'open': price_series - 5,
-        'high': price_series + 10,
-        'low': price_series - 10,
+        'open': price_series - 4,
+        'high': price_series + 8,
+        'low': price_series - 8,
         'close': price_series
     })
 
